@@ -2,7 +2,11 @@ package com.app.coolweather.activity;
 
 import android.app.Activity;
 import android.app.ProgressDialog;
+import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.preference.PreferenceManager;
+import android.service.chooser.ChooserTargetService;
 import android.text.TextUtils;
 import android.view.View;
 import android.view.Window;
@@ -44,11 +48,21 @@ public class ChooseAreaActivity extends Activity {
     private Province selectedProvince;
     private City selectedCity;
     private int currentLevel;
+    private boolean isFromWeatherActivity;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         setContentView(R.layout.choose_area);
+        isFromWeatherActivity=getIntent().getBooleanExtra("from_weather_activity",false);
+        SharedPreferences prefs= PreferenceManager.getDefaultSharedPreferences(this);
+        if (prefs.getBoolean("city_selected",false)&&!isFromWeatherActivity){
+            Intent intent=new Intent(this,WeatherActivity.class);
+            startActivity(intent);
+            finish();
+            return;
+        }
+
         listView= (ListView) findViewById(R.id.list_view);
         titleText= (TextView) findViewById(R.id.title_text);
         arrayAdapter=new ArrayAdapter<String>(this,android.R.layout.simple_list_item_1,dataList);
@@ -58,12 +72,18 @@ public class ChooseAreaActivity extends Activity {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
                 if (currentLevel==LEVEL_PROVINCE){
-                    Toast.makeText(ChooseAreaActivity.this,"click "+provinceList.get(position),Toast.LENGTH_SHORT).show();;
-                    selectedProvince=provinceList.get(position);
+                //    Toast.makeText(ChooseAreaActivity.this,"click "+provinceList.get(position),Toast.LENGTH_SHORT).show();;
+                    selectedProvince=provinceList.get(position);//获取被点击的省份
                     queryCities();
                 }else if(currentLevel==LEVEL_CITY){
                     selectedCity=cityList.get(position);
                     queryCounties();
+                }else if (currentLevel==LEVEL_COUNTY){
+                    String countyCode=countyList.get(position).getCountyCode();
+                    Intent intent=new Intent(ChooseAreaActivity.this,WeatherActivity.class);
+                    intent.putExtra("county_code",countyCode);
+                    startActivity(intent);
+                    finish();
                 }
             }
 
@@ -107,7 +127,8 @@ public class ChooseAreaActivity extends Activity {
     }
 
     private void queryCities() {
-        cityList=coolWeatherDB.loadCities(selectedProvince.getId());
+        cityList=coolWeatherDB.loadCities(selectedProvince.getId());//在city表里加入了省份Id，这个Id是Province表自动生成的
+        //传入进来的selectedProvince，对应有一个表特有Id，依据这个Id去给城市分类
         if (cityList.size()>0){
             dataList.clear();
             for (City city:cityList){
@@ -194,6 +215,10 @@ public class ChooseAreaActivity extends Activity {
         }else if (currentLevel==LEVEL_CITY){
             queryProvinces();
         }else {
+            if (isFromWeatherActivity){
+                Intent intent=new Intent(this,WeatherActivity.class);
+                startActivity(intent);
+            }
             finish();
         }
     }
